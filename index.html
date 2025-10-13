@@ -43,6 +43,20 @@
 
     <hr>
 
+    <h2>Writing</h2>
+    <ul>
+      <li><a href="forbes.html">The Document Object Model Is Dead</a> — Forbes Business Council, 2025</li>
+    </ul>
+
+    <hr>
+
+    <h2>Reading</h2>
+    <ul id="books">
+      <li>loading...</li>
+    </ul>
+
+    <hr>
+
     <h2>Contact</h2>
     <ul>
       <li><a href="https://x.com/boriskurikhin">X</a></li>
@@ -55,6 +69,19 @@
     <p style="font-size: 12px; color: #999; text-align: center;">© <span id="year"></span> Boris Skurikhin</p>
     <script>
       document.getElementById('year').textContent = new Date().getFullYear();
+      
+      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.goodreads.com/review/list_rss/180857720?key=3Ios8fdHX5apMWO22kc50741Ry3w7bkLUrSB7L6YXO-TVDuS&shelf=currently-reading'))
+        .then(r => r.text())
+        .then(xml => {
+          const items = new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item');
+          const books = Array.from(items).map(item => {
+            const title = item.querySelector('title').textContent;
+            const author = item.querySelector('description').textContent.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
+            return `${title} by ${author.trim()}`;
+          });
+          document.getElementById('books').innerHTML = books.map(book => `<li>${book}</li>`).join('');
+        })
+        .catch(() => document.getElementById('books').textContent = 'error loading books');
     </script>
   </body>
 </html>
