@@ -50,21 +50,18 @@
     blockquote footer { margin-top: 0.5rem; font-size: 0.9em; color: var(--secondary-text); }
     
     .theme-toggle {
-      position: fixed;
-      top: 2rem;
-      right: 2rem;
       background: none;
       border: none;
       padding: 0;
       margin: 0;
       font-family: inherit;
       font-size: 12px;
-      line-height: inherit;
-      color: var(--link-color);
+      line-height: 1;
+      color: var(--secondary-text);
       text-decoration: underline;
       transition: color 0.2s ease;
       cursor: pointer;
-      z-index: 1000;
+      display: inline;
     }
     
     .theme-toggle:hover {
@@ -77,7 +74,6 @@
     }
   </style>
   <body>
-    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">dark</button>
     <div class="header">
       <img src="boris.jpg" alt="Boris Skurikhin" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;">
       <h1>Boris Skurikhin</h1>
@@ -120,6 +116,7 @@
 
     <p style="font-size: 12px; color: var(--secondary-text);">"In my delusions of grandeur, I brushed it off as the failings of lesser men, and into the abyss I went." — Unknown</p>
     <p style="font-size: 12px; color: var(--secondary-text); text-align: center;">© <span id="year"></span> Boris Skurikhin</p>
+    <p style="text-align: center;"><button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">dark</button></p>
     <script>
       // Theme management
       function initTheme() {
