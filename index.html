@@ -148,18 +148,40 @@
       
       document.getElementById('year').textContent = new Date().getFullYear();
       
-      fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.goodreads.com/review/list_rss/180857720?key=3Ios8fdHX5apMWO22kc50741Ry3w7bkLUrSB7L6YXO-TVDuS&shelf=currently-reading'))
-        .then(r => r.text())
-        .then(xml => {
-          const items = new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item');
-          const books = Array.from(items).map(item => {
-            const title = item.querySelector('title').textContent;
-            const author = item.querySelector('description').textContent.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
-            return `${title} by ${author.trim()}`;
+      function loadReadingList() {
+        const cached = localStorage.getItem('readingList');
+        const timestamp = localStorage.getItem('readingListTimestamp');
+        const now = Date.now();
+
+        if (cached && timestamp && (now - parseInt(timestamp)) < 604800000) {
+          document.getElementById('books').innerHTML = cached;
+          return;
+        }
+
+        fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.goodreads.com/review/list_rss/180857720?key=3Ios8fdHX5apMWO22kc50741Ry3w7bkLUrSB7L6YXO-TVDuS&shelf=currently-reading'))
+          .then(r => r.text())
+          .then(xml => {
+            const items = new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item');
+            const books = Array.from(items).map(item => {
+              const title = item.querySelector('title').textContent;
+              const author = item.querySelector('description').textContent.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
+              return `${title} by ${author.trim()}`;
+            });
+            const booksHtml = books.map(book => `<li>${book}</li>`).join('');
+            document.getElementById('books').innerHTML = booksHtml;
+            localStorage.setItem('readingList', booksHtml);
+            localStorage.setItem('readingListTimestamp', now.toString());
+          })
+          .catch(() => {
+            if (cached) {
+              document.getElementById('books').innerHTML = cached;
+            } else {
+              document.getElementById('books').textContent = 'Something broke, guess I\'m gonna gate keep.';
+            }
           });
-          document.getElementById('books').innerHTML = books.map(book => `<li>${book}</li>`).join('');
-        })
-        .catch(() => document.getElementById('books').textContent = 'error loading books');
+      }
+      
+      loadReadingList();
     </script>
   </body>
 </html>
