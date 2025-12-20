@@ -158,16 +158,35 @@
           return;
         }
 
-        fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.goodreads.com/review/list_rss/180857720?key=3Ios8fdHX5apMWO22kc50741Ry3w7bkLUrSB7L6YXO-TVDuS&shelf=currently-reading'))
+        const baseUrl = 'https://api.allorigins.win/raw?url=';
+        const rssBase = 'https://www.goodreads.com/review/list_rss/180857720?key=3Ios8fdHX5apMWO22kc50741Ry3w7bkLUrSB7L6YXO-TVDuS&shelf=';
+        
+        const fetchShelf = (shelf) => fetch(baseUrl + encodeURIComponent(rssBase + shelf))
           .then(r => r.text())
           .then(xml => {
             const items = new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item');
-            const books = Array.from(items).map(item => {
+            return Array.from(items).map(item => {
               const title = item.querySelector('title').textContent;
               const author = item.querySelector('description').textContent.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
-              return `${title} by ${author.trim()}`;
+              return { title, author: author.trim() };
             });
-            const booksHtml = books.map(book => `<li>${book}</li>`).join('');
+          });
+
+        Promise.all([
+          fetchShelf('currently-reading'),
+          fetchShelf('paused-books')
+        ])
+          .then(([currentlyReading, paused]) => {
+            let booksHtml = '';
+            if (currentlyReading.length > 0) {
+              booksHtml += currentlyReading.map(b => `<li><span style="color: var(--secondary-text);">(reading)</span> ${b.title} by ${b.author}</li>`).join('');
+            }
+            if (paused.length > 0) {
+              booksHtml += paused.map(b => `<li><span style="color: var(--secondary-text);">(paused)</span> ${b.title} by ${b.author}</li>`).join('');
+            }
+            if (!booksHtml) {
+              booksHtml = '<li>Nothing on the shelf right now.</li>';
+            }
             document.getElementById('books').innerHTML = booksHtml;
             localStorage.setItem('readingList', booksHtml);
             localStorage.setItem('readingListTimestamp', now.toString());
