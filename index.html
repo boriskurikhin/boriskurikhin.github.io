@@ -167,22 +167,27 @@
             const items = new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item');
             return Array.from(items).map(item => {
               const title = item.querySelector('title').textContent;
-              const author = item.querySelector('description').textContent.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
-              return { title, author: author.trim() };
+              const desc = item.querySelector('description').textContent;
+              const author = desc.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
+              const readAtMatch = desc.match(/user_read_at:\s*([^<\n]+)/i);
+              const readAt = readAtMatch ? new Date(readAtMatch[1].trim()) : null;
+              return { title, author: author.trim(), readAt };
             });
           });
 
         Promise.all([
           fetchShelf('currently-reading'),
-          fetchShelf('paused-books')
+          fetchShelf('read')
         ])
-          .then(([currentlyReading, paused]) => {
+          .then(([currentlyReading, finished]) => {
             let booksHtml = '';
             if (currentlyReading.length > 0) {
               booksHtml += currentlyReading.map(b => `<li><span style="color: var(--secondary-text);">(reading)</span> ${b.title} by ${b.author}</li>`).join('');
             }
-            if (paused.length > 0) {
-              booksHtml += paused.map(b => `<li><span style="color: var(--secondary-text);">(paused)</span> ${b.title} by ${b.author}</li>`).join('');
+            // Take the first 5 returned from the feed
+            const recentlyFinished = finished.slice(0, 5);
+            if (recentlyFinished.length > 0) {
+              booksHtml += recentlyFinished.map(b => `<li><span style="color: var(--secondary-text);">(finished)</span> ${b.title} by ${b.author}</li>`).join('');
             }
             if (!booksHtml) {
               booksHtml = '<li>Nothing on the shelf right now.</li>';
