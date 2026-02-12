@@ -158,7 +158,7 @@
           return;
         }
 
-        const baseUrl = 'https://corsproxy.io/?url=';
+        const baseUrl = 'https://api.allorigins.win/raw?url=';
         const rssBase = 'https://www.goodreads.com/review/list_rss/180857720?key=3Ios8fdHX5apMWO22kc50741Ry3w7bkLUrSB7L6YXO-TVDuS&shelf=';
         
         const fetchShelf = (shelf) => fetch(baseUrl + encodeURIComponent(rssBase + shelf))
