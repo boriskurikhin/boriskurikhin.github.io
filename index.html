@@ -158,22 +158,39 @@
           return;
         }
 
-        const baseUrl = 'https://api.allorigins.win/raw?url=';
         const rssBase = 'https://www.goodreads.com/review/list_rss/180857720?key=3Ios8fdHX5apMWO22kc50741Ry3w7bkLUrSB7L6YXO-TVDuS&shelf=';
-        
-        const fetchShelf = (shelf) => fetch(baseUrl + encodeURIComponent(rssBase + shelf))
-          .then(r => r.text())
-          .then(xml => {
-            const items = new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item');
-            return Array.from(items).map(item => {
-              const title = item.querySelector('title').textContent;
-              const desc = item.querySelector('description').textContent;
-              const author = desc.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
-              const readAtMatch = desc.match(/user_read_at:\s*([^<\n]+)/i);
-              const readAt = readAtMatch ? new Date(readAtMatch[1].trim()) : null;
-              return { title, author: author.trim(), readAt };
-            });
+
+        const proxies = [
+          { url: (u) => 'https://api.allorigins.win/get?url=' + encodeURIComponent(u), parse: (r) => r.json().then(d => d.contents) },
+          { url: (u) => 'https://corsproxy.io/?' + encodeURIComponent(u), parse: (r) => r.text() },
+          { url: (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u), parse: (r) => r.text() },
+        ];
+
+        function parseBooks(xml) {
+          const items = new DOMParser().parseFromString(xml, 'text/xml').querySelectorAll('item');
+          return Array.from(items).map(item => {
+            const title = item.querySelector('title').textContent;
+            const desc = item.querySelector('description').textContent;
+            const author = desc.match(/author:\s*([^<\n]+)/i)?.[1] || 'Unknown';
+            const readAtMatch = desc.match(/user_read_at:\s*([^<\n]+)/i);
+            const readAt = readAtMatch ? new Date(readAtMatch[1].trim()) : null;
+            return { title, author: author.trim(), readAt };
           });
+        }
+
+        async function fetchShelf(shelf) {
+          const target = rssBase + shelf;
+          for (const proxy of proxies) {
+            try {
+              const r = await fetch(proxy.url(target));
+              if (!r.ok) continue;
+              const xml = await proxy.parse(r);
+              if (!xml || !xml.includes('<item>')) continue;
+              return parseBooks(xml);
+            } catch { continue; }
+          }
+          throw new Error('All proxies failed');
+        }
 
         Promise.all([
           fetchShelf('currently-reading'),
