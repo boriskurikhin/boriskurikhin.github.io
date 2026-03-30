@@ -243,40 +243,43 @@
       
       loadReadingList();
 
-      // Link hover scramble
       var scrambleChars = 'abcdefghkmnopqrsuvxyz023456789абвгдежзиклмнопрстуфхцчшщэюя';
-      document.querySelectorAll('a').forEach(link => {
-        let isAnimating = false;
-        link.addEventListener('mouseenter', function() {
-          if (isAnimating) return;
-          isAnimating = true;
-          const original = this.textContent;
-          const prevWhiteSpace = this.style.whiteSpace;
-          this.style.whiteSpace = 'nowrap';
-          let frame = 0;
-          const totalFrames = 8;
-          const interval = setInterval(() => {
-            let result = '';
-            for (let i = 0; i < original.length; i++) {
-              if (original[i] === ' ') {
-                result += ' ';
-              } else if (frame / totalFrames > i / original.length) {
-                result += original[i];
-              } else {
-                result += scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+      var isMobile = window.matchMedia('(pointer: coarse)').matches;
+
+      if (!isMobile) {
+        document.querySelectorAll('a').forEach(link => {
+          let isAnimating = false;
+          link.addEventListener('mouseenter', function() {
+            if (isAnimating) return;
+            isAnimating = true;
+            const original = this.textContent;
+            const prevWhiteSpace = this.style.whiteSpace;
+            this.style.whiteSpace = 'nowrap';
+            let frame = 0;
+            const totalFrames = 8;
+            const interval = setInterval(() => {
+              let result = '';
+              for (let i = 0; i < original.length; i++) {
+                if (original[i] === ' ') {
+                  result += ' ';
+                } else if (frame / totalFrames > i / original.length) {
+                  result += original[i];
+                } else {
+                  result += scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+                }
               }
-            }
-            this.textContent = result;
-            frame++;
-            if (frame > totalFrames) {
-              clearInterval(interval);
-              this.textContent = original;
-              this.style.whiteSpace = prevWhiteSpace;
-              isAnimating = false;
-            }
-          }, 25);
+              this.textContent = result;
+              frame++;
+              if (frame > totalFrames) {
+                clearInterval(interval);
+                this.textContent = original;
+                this.style.whiteSpace = prevWhiteSpace;
+                isAnimating = false;
+              }
+            }, 25);
+          });
         });
-      });
+      }
     </script>
     <script type="module">
       const CDN = 'https://esm.sh/@chenglou/pretext@0.0.3'
@@ -415,12 +418,14 @@
         ]
 
         const headings = []
-        document.querySelectorAll('h2').forEach(el => {
-          const data = { el, original: el.textContent, scrambleId: null, revealed: false }
-          el.style.whiteSpace = 'nowrap'
-          el.textContent = scrambleText(data.original, 0)
-          headings.push(data)
-        })
+        if (!isMobile) {
+          document.querySelectorAll('h2').forEach(el => {
+            const data = { el, original: el.textContent, scrambleId: null, revealed: false }
+            el.style.whiteSpace = 'nowrap'
+            el.textContent = scrambleText(data.original, 0)
+            headings.push(data)
+          })
+        }
 
         // Per-character traveling ripple on the name
         const nameEl = document.querySelector('.header h1')
@@ -457,11 +462,12 @@
         let nameRafRunning = false
         nameEl.style.cursor = 'default'
 
-        nameEl.addEventListener('mouseenter', (e) => {
+        function triggerRipple(clientX) {
           const rect = nameEl.getBoundingClientRect()
+          const x = clientX - rect.left
           activeRipples.push({
-            cursorX: e.clientX - rect.left,
-            maxDist: Math.max(e.clientX - rect.left, cx - (e.clientX - rect.left)),
+            cursorX: x,
+            maxDist: Math.max(x, cx - x),
             start: performance.now(),
             duration: 700,
             amp: 4
@@ -470,7 +476,15 @@
             nameRafRunning = true
             requestAnimationFrame(tickRipples)
           }
-        })
+        }
+
+        if (isMobile) {
+          nameEl.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) triggerRipple(e.touches[0].clientX)
+          }, { passive: true })
+        } else {
+          nameEl.addEventListener('mouseenter', (e) => triggerRipple(e.clientX))
+        }
 
         function tickRipples(now) {
           const offsets = new Float32Array(nameChars.length)
@@ -537,7 +551,7 @@
           for (const h of headings) observer.observe(h.el)
         }
 
-        observeScramble()
+        if (!isMobile) observeScramble()
 
         window.addEventListener('resize', () => {
           const w = document.body.offsetWidth
