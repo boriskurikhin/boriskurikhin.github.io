@@ -39,7 +39,9 @@
       font-size: 18px;
       transition: background-color 0.2s ease, color 0.2s ease;
     }
-    h1, h2, h3 { line-height: 1.2; }
+    h1 { font-size: 32px; line-height: 1.2; }
+    h2 { font-size: 24px; line-height: 1.2; }
+    h3 { line-height: 1.2; }
     .header { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1rem; }
     .header h1 { margin: 0; }
     a { color: var(--link-color); text-decoration: underline; transition: color 0.2s ease; }
@@ -76,13 +78,28 @@
     .yc {
       color: rgba(255, 102, 0, 0.85);
     }
+
+    .pretext-block {
+      position: relative;
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    .pretext-line {
+      position: absolute;
+      white-space: pre;
+      color: var(--text-color);
+      user-select: text;
+      cursor: text;
+    }
   </style>
   <body>
     <div class="header">
       <img src="boris.jpg" alt="Boris Skurikhin" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover;">
       <h1>Boris Skurikhin</h1>
     </div>
-    <p>Software engineer, music producer, and founder at Docket. On a mission to automate anything with a UI, starting with web QA.</p>
+    <div id="bio-container" class="pretext-block">
+      <noscript><p>Software engineer, music producer, and founder at Docket. On a mission to automate anything with a UI, starting with web QA.</p></noscript>
+    </div>
 
     <hr>
 
@@ -118,7 +135,9 @@
     </ul>
     <hr>
 
-    <p style="font-size: 12px; color: var(--secondary-text);">"In my delusions of grandeur, I brushed it off as the failings of lesser men, and into the abyss I went." — Unknown</p>
+    <div id="quote-container" class="pretext-block" style="font-size: 12px; color: var(--secondary-text);">
+      <noscript><p>"In my delusions of grandeur, I brushed it off as the failings of lesser men, and into the abyss I went." — Unknown</p></noscript>
+    </div>
     <p style="font-size: 12px; color: var(--secondary-text); text-align: center;">© <span id="year"></span> Boris Skurikhin</p>
     <p style="text-align: center;"><button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">dark</button></p>
     <script>
@@ -223,6 +242,300 @@
       }
       
       loadReadingList();
+
+      // Link hover scramble
+      var scrambleChars = 'abcdefghkmnopqrsuvxyz023456789абвгдежзиклмнопрстуфхцчшщэюя';
+      document.querySelectorAll('a').forEach(link => {
+        let isAnimating = false;
+        link.addEventListener('mouseenter', function() {
+          if (isAnimating) return;
+          isAnimating = true;
+          const original = this.textContent;
+          const prevWhiteSpace = this.style.whiteSpace;
+          this.style.whiteSpace = 'nowrap';
+          let frame = 0;
+          const totalFrames = 8;
+          const interval = setInterval(() => {
+            let result = '';
+            for (let i = 0; i < original.length; i++) {
+              if (original[i] === ' ') {
+                result += ' ';
+              } else if (frame / totalFrames > i / original.length) {
+                result += original[i];
+              } else {
+                result += scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+              }
+            }
+            this.textContent = result;
+            frame++;
+            if (frame > totalFrames) {
+              clearInterval(interval);
+              this.textContent = original;
+              this.style.whiteSpace = prevWhiteSpace;
+              isAnimating = false;
+            }
+          }, 25);
+        });
+      });
+    </script>
+    <script type="module">
+      const CDN = 'https://esm.sh/@chenglou/pretext@0.0.3'
+      try {
+        const { prepareWithSegments, layoutWithLines } = await import(CDN)
+
+        const PRETEXT_FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif'
+        const SCRAMBLE_FRAMES = 14
+        const SCRAMBLE_INTERVAL = 25
+        const CHARS = scrambleChars
+
+        let lastWidth = 0
+
+        function scrambleText(original, progress) {
+          if (progress >= 1) return original
+          let result = ''
+          for (let i = 0; i < original.length; i++) {
+            if (original[i] === ' ') {
+              result += ' '
+            } else if (i / original.length < progress) {
+              result += original[i]
+            } else {
+              result += CHARS[(Math.random() * CHARS.length) | 0]
+            }
+          }
+          return result
+        }
+
+        function runScramble(getText, setText, onDone) {
+          let frame = 0
+          setText(scrambleText(getText(), 0))
+          const id = setInterval(() => {
+            frame++
+            const progress = frame / SCRAMBLE_FRAMES
+            setText(scrambleText(getText(), progress))
+            if (frame >= SCRAMBLE_FRAMES) {
+              clearInterval(id)
+              setText(getText())
+              if (onDone) onDone()
+            }
+          }, SCRAMBLE_INTERVAL)
+          return id
+        }
+
+        class PretextWaveBlock {
+          constructor(container, text, fontSize, lineHeight, { scramble = true } = {}) {
+            this.container = container
+            this.font = `${fontSize}px ${PRETEXT_FONT}`
+            this.lineHeight = lineHeight
+            this.prepared = prepareWithSegments(text, this.font)
+            this.lineEls = []
+            this.lineTexts = []
+            this.visibleCount = 0
+            this.scrambleId = null
+            this.revealed = !scramble
+            this.noScramble = !scramble
+            this.layout()
+          }
+
+          layout() {
+            const w = this.container.offsetWidth
+            if (w <= 0) return
+            const { lines } = layoutWithLines(this.prepared, w, this.lineHeight)
+            this.lineTexts = lines.map(l => l.text)
+
+            while (this.lineEls.length < lines.length) {
+              const el = document.createElement('span')
+              el.className = 'pretext-line'
+              el.style.font = this.font
+              el.style.lineHeight = `${this.lineHeight}px`
+              this.container.appendChild(el)
+              this.lineEls.push(el)
+            }
+
+            for (let i = 0; i < this.lineEls.length; i++) {
+              if (i < lines.length) {
+                this.lineEls[i].style.display = ''
+                this.lineEls[i].style.top = `${Math.round(i * this.lineHeight)}px`
+                this.lineEls[i].style.left = '0px'
+                this.lineEls[i].style.transform = ''
+                this.lineEls[i].textContent = this.noScramble ? this.lineTexts[i] : scrambleText(this.lineTexts[i], 0)
+              } else {
+                this.lineEls[i].style.display = 'none'
+              }
+            }
+
+            this.visibleCount = lines.length
+            this.container.style.height = `${Math.round(lines.length * this.lineHeight)}px`
+          }
+
+          triggerScrambleIn() {
+            if (this.scrambleId !== null) clearInterval(this.scrambleId)
+            let frame = 0
+            this.scrambleId = setInterval(() => {
+              frame++
+              const progress = frame / SCRAMBLE_FRAMES
+              for (let i = 0; i < this.visibleCount; i++) {
+                this.lineEls[i].textContent = scrambleText(this.lineTexts[i], progress)
+              }
+              if (frame >= SCRAMBLE_FRAMES) {
+                clearInterval(this.scrambleId)
+                this.scrambleId = null
+                this.revealed = true
+                for (let i = 0; i < this.visibleCount; i++) {
+                  this.lineEls[i].textContent = this.lineTexts[i]
+                }
+              }
+            }, SCRAMBLE_INTERVAL)
+          }
+
+          setScrambled() {
+            if (this.scrambleId !== null) { clearInterval(this.scrambleId); this.scrambleId = null }
+            this.revealed = false
+            for (let i = 0; i < this.visibleCount; i++) {
+              this.lineEls[i].textContent = scrambleText(this.lineTexts[i], 0)
+            }
+          }
+
+        }
+
+        await document.fonts.ready
+
+        const pretextBlocks = [
+          new PretextWaveBlock(
+            document.getElementById('bio-container'),
+            'Software engineer, music producer, and founder at Docket. On a mission to automate anything with a UI, starting with web QA.',
+            18, 28.8,
+            { scramble: false }
+          ),
+          new PretextWaveBlock(
+            document.getElementById('quote-container'),
+            '\u201CIn my delusions of grandeur, I brushed it off as the failings of lesser men, and into the abyss I went.\u201D \u2014 Unknown',
+            12, 19.2,
+            { scramble: false }
+          )
+        ]
+
+        const headings = []
+        document.querySelectorAll('h2').forEach(el => {
+          const data = { el, original: el.textContent, scrambleId: null, revealed: false }
+          el.style.whiteSpace = 'nowrap'
+          el.textContent = scrambleText(data.original, 0)
+          headings.push(data)
+        })
+
+        // Per-character traveling ripple on the name
+        const nameEl = document.querySelector('.header h1')
+        const nameText = nameEl.textContent
+        const nameFont = `bold 32px ${PRETEXT_FONT}`
+        const nameChars = []
+        const nameSpans = []
+        let cx = 0
+        for (const ch of nameText) {
+          const prepared = prepareWithSegments(ch, nameFont)
+          let w = 0
+          if (ch === ' ') {
+            w = prepareWithSegments('a a', nameFont).widths[1] || 6
+          } else {
+            w = prepared.widths.length > 0 ? prepared.widths[0] : 0
+          }
+          nameChars.push({ ch, x: cx, w })
+          cx += w
+        }
+
+        nameEl.textContent = ''
+        nameEl.style.whiteSpace = 'nowrap'
+        for (const { ch, w } of nameChars) {
+          const span = document.createElement('span')
+          span.textContent = ch === ' ' ? '\u00A0' : ch
+          span.style.display = 'inline-block'
+          span.style.position = 'relative'
+          if (ch === ' ') span.style.width = w + 'px'
+          nameEl.appendChild(span)
+          nameSpans.push(span)
+        }
+
+        let nameRippleId = 0
+        nameEl.style.cursor = 'default'
+        nameEl.addEventListener('mouseenter', (e) => {
+          const id = ++nameRippleId
+          const rect = nameEl.getBoundingClientRect()
+          const cursorX = e.clientX - rect.left
+          const maxDist = Math.max(cursorX, cx - cursorX)
+          const start = performance.now()
+          const duration = 700
+          const amp = 4
+
+          function tick(now) {
+            if (id !== nameRippleId) return
+            const t = now - start
+            const progress = t / duration
+            if (progress >= 1) {
+              for (let i = 0; i < nameSpans.length; i++) nameSpans[i].style.transform = ''
+              return
+            }
+            for (let i = 0; i < nameChars.length; i++) {
+              const charCenter = nameChars[i].x + nameChars[i].w / 2
+              const dist = Math.abs(charCenter - cursorX)
+              const delay = (dist / maxDist) * 0.6
+              const local = (progress - delay) / 0.4
+              let dy = 0
+              if (local > 0 && local < 1) {
+                dy = Math.sin(local * Math.PI) * amp
+              }
+              nameSpans[i].style.transform = dy === 0 ? '' : `translateY(${-dy.toFixed(1)}px)`
+            }
+            requestAnimationFrame(tick)
+          }
+          requestAnimationFrame(tick)
+        })
+
+        function observeScramble() {
+          const observer = new IntersectionObserver(entries => {
+            for (const entry of entries) {
+              const target = entry.target
+
+              for (const block of pretextBlocks) {
+                if (block.container !== target || block.noScramble) continue
+                if (entry.isIntersecting && !block.revealed && block.scrambleId === null) {
+                  block.triggerScrambleIn()
+                } else if (!entry.isIntersecting && block.revealed) {
+                  block.setScrambled()
+                }
+              }
+
+              for (const h of headings) {
+                if (h.el !== target) continue
+                if (entry.isIntersecting && !h.revealed && h.scrambleId === null) {
+                  h.scrambleId = runScramble(
+                    () => h.original,
+                    t => { h.el.textContent = t },
+                    () => { h.scrambleId = null; h.revealed = true }
+                  )
+                } else if (!entry.isIntersecting && h.revealed) {
+                  if (h.scrambleId !== null) { clearInterval(h.scrambleId); h.scrambleId = null }
+                  h.revealed = false
+                  h.el.textContent = scrambleText(h.original, 0)
+                }
+              }
+            }
+          }, { threshold: 0.1 })
+
+          for (const block of pretextBlocks) observer.observe(block.container)
+          for (const h of headings) observer.observe(h.el)
+        }
+
+        observeScramble()
+
+        window.addEventListener('resize', () => {
+          const w = document.body.offsetWidth
+          if (w !== lastWidth) {
+            lastWidth = w
+            pretextBlocks.forEach(b => b.layout())
+          }
+        })
+      } catch (e) {
+        document.getElementById('bio-container').textContent = 'Software engineer, music producer, and founder at Docket. On a mission to automate anything with a UI, starting with web QA.'
+        document.getElementById('quote-container').textContent = '\u201CIn my delusions of grandeur, I brushed it off as the failings of lesser men, and into the abyss I went.\u201D \u2014 Unknown'
+      }
     </script>
   </body>
 </html>
