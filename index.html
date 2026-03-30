@@ -453,40 +453,54 @@
           nameSpans.push(span)
         }
 
-        let nameRippleId = 0
+        const activeRipples = []
+        let nameRafRunning = false
         nameEl.style.cursor = 'default'
-        nameEl.addEventListener('mouseenter', (e) => {
-          const id = ++nameRippleId
-          const rect = nameEl.getBoundingClientRect()
-          const cursorX = e.clientX - rect.left
-          const maxDist = Math.max(cursorX, cx - cursorX)
-          const start = performance.now()
-          const duration = 700
-          const amp = 4
 
-          function tick(now) {
-            if (id !== nameRippleId) return
-            const t = now - start
-            const progress = t / duration
-            if (progress >= 1) {
-              for (let i = 0; i < nameSpans.length; i++) nameSpans[i].style.transform = ''
-              return
-            }
+        nameEl.addEventListener('mouseenter', (e) => {
+          const rect = nameEl.getBoundingClientRect()
+          activeRipples.push({
+            cursorX: e.clientX - rect.left,
+            maxDist: Math.max(e.clientX - rect.left, cx - (e.clientX - rect.left)),
+            start: performance.now(),
+            duration: 700,
+            amp: 4
+          })
+          if (!nameRafRunning) {
+            nameRafRunning = true
+            requestAnimationFrame(tickRipples)
+          }
+        })
+
+        function tickRipples(now) {
+          const offsets = new Float32Array(nameChars.length)
+
+          for (let r = activeRipples.length - 1; r >= 0; r--) {
+            const ripple = activeRipples[r]
+            const progress = (now - ripple.start) / ripple.duration
+            if (progress >= 1) { activeRipples.splice(r, 1); continue }
             for (let i = 0; i < nameChars.length; i++) {
               const charCenter = nameChars[i].x + nameChars[i].w / 2
-              const dist = Math.abs(charCenter - cursorX)
-              const delay = (dist / maxDist) * 0.6
+              const dist = Math.abs(charCenter - ripple.cursorX)
+              const delay = (dist / ripple.maxDist) * 0.6
               const local = (progress - delay) / 0.4
-              let dy = 0
               if (local > 0 && local < 1) {
-                dy = Math.sin(local * Math.PI) * amp
+                offsets[i] += -Math.sin(local * Math.PI) * ripple.amp
               }
-              nameSpans[i].style.transform = dy === 0 ? '' : `translateY(${-dy.toFixed(1)}px)`
             }
-            requestAnimationFrame(tick)
           }
-          requestAnimationFrame(tick)
-        })
+
+          for (let i = 0; i < nameSpans.length; i++) {
+            const dy = offsets[i]
+            nameSpans[i].style.transform = Math.abs(dy) < 0.1 ? '' : `translateY(${dy.toFixed(1)}px)`
+          }
+
+          if (activeRipples.length > 0) {
+            requestAnimationFrame(tickRipples)
+          } else {
+            nameRafRunning = false
+          }
+        }
 
         function observeScramble() {
           const observer = new IntersectionObserver(entries => {
